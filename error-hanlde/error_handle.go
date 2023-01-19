@@ -29,6 +29,18 @@ const (
 	Cancel       AppErrorRetry = -1
 )
 
+var decisionMapLevel = map[AppError]AppErrorRetry{
+	NotFound:         None,
+	ServerError:      Cancel,
+	DataSourceError:  WaitAndRetry,
+	ValidationError:  None,
+	MaxFileSizeError: Cancel,
+	ContentTypeError: Cancel,
+	AnyHow:           Cancel,
+	Unauthorized:     Cancel,
+	Forbidden:        Cancel,
+}
+
 type ErrorExtensionValues struct {
 	Reason string
 	Code   string
@@ -103,18 +115,6 @@ func CreateExtensionForAppErrorWithMap(params ErrorExtensionParams) *ErrorExtens
 			code = decision
 			break
 		}
-	}
-
-	decisionMapLevel := map[AppError]AppErrorRetry{
-		NotFound:         None,
-		ServerError:      Cancel,
-		DataSourceError:  WaitAndRetry,
-		ValidationError:  None,
-		MaxFileSizeError: Cancel,
-		ContentTypeError: Cancel,
-		AnyHow:           Cancel,
-		Unauthorized:     Cancel,
-		Forbidden:        Cancel,
 	}
 
 	for key, appErrorRetry := range decisionMapLevel {
