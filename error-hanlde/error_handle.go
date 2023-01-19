@@ -35,37 +35,95 @@ type ErrorExtensionValues struct {
 	Level  string
 }
 
-func CreateExtensions(e *ErrorExtensionValues, reason, code string, level AppErrorRetry) *ErrorExtensionValues {
-	e.Reason = reason
-	e.Code = code
-	e.Level = strconv.Itoa(int(level))
-	return e
+type ErrorExtensionParams struct {
+	Reason   string
+	Code     string
+	AppError AppError
 }
 
-func (a AppError) CreateExtensionForAppError(err *error, reason, code *string) *ErrorExtensionValues {
-	e := ErrorExtensionValues{}
-	switch a {
+func createExtensions(reason, code string, level AppErrorRetry) *ErrorExtensionValues {
+	return &ErrorExtensionValues{
+		Reason: reason,
+		Code:   code,
+		Level:  strconv.Itoa(int(level)),
+	}
+}
+
+func CreateExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValues {
+	switch params.AppError {
 	case NotFound:
-		return CreateExtensions(&e, "Could not find resource", "NOT_FOUND", None)
+		return createExtensions(params.Reason, "NOT_FOUND", None)
 	case ServerError:
-		return CreateExtensions(&e, *reason, "SERVER_ERROR", Cancel)
+		return createExtensions(params.Reason, "SERVER_ERROR", Cancel)
 	case DataSourceError:
-		return CreateExtensions(&e, *reason, "DATA_SOURCE_ERROR", WaitAndRetry)
+		return createExtensions(params.Reason, "DATA_SOURCE_ERROR", WaitAndRetry)
 	case ValidationError:
-		return CreateExtensions(&e, *reason, *code, None)
+		return createExtensions(params.Reason, params.Code, None)
 	case MaxFileSizeError:
-		return CreateExtensions(&e, *reason, "MAX_FILE_SIZE_ERROR", Cancel)
+		return createExtensions(params.Reason, "MAX_FILE_SIZE_ERROR", Cancel)
 	case ContentTypeError:
-		return CreateExtensions(&e, *reason, "CONTENT_TYPE_ERROR", Cancel)
+		return createExtensions(params.Reason, "CONTENT_TYPE_ERROR", Cancel)
 	case AnyHow:
-		err := *err
-		return CreateExtensions(&e, err.Error(), "SERVER_ERROR", Cancel)
+		//return createExtensions(params.Err.Error(), "SERVER_ERROR", Cancel)
+		return createExtensions(params.Reason, "SERVER_ERROR", Cancel)
 	case ErrorWithoutExtensions:
 		return nil
 	case Unauthorized:
-		return CreateExtensions(&e, "UNAUTHORIZED", "UNAUTHORIZED", Cancel)
+		return createExtensions(params.Reason, "UNAUTHORIZED", Cancel)
+		//return createExtensions("UNAUTHORIZED", "UNAUTHORIZED", Cancel)
 	case Forbidden:
-		return CreateExtensions(&e, "FORBIDDEN", "FORBIDDEN", Cancel)
+		//return createExtensions("FORBIDDEN", "FORBIDDEN", Cancel)
+		return createExtensions(params.Reason, "FORBIDDEN", Cancel)
 	}
 	return nil
+}
+
+func CreateExtensionForAppErrorWithMap(params ErrorExtensionParams) *ErrorExtensionValues {
+	code := ""
+	retry := None
+
+	if params.AppError == ErrorWithoutExtensions {
+		return nil
+	}
+
+	decisionMapCode := map[AppError]string{
+		NotFound:         "NOT_FOUND",
+		ServerError:      "SERVER_ERROR",
+		DataSourceError:  "DATA_SOURCE_ERROR",
+		ValidationError:  params.Code,
+		MaxFileSizeError: "MAX_FILE_SIZE_ERROR",
+		ContentTypeError: "CONTENT_TYPE_ERROR",
+		AnyHow:           "SERVER_ERROR",
+		Unauthorized:     "UNAUTHORIZED",
+		Forbidden:        "FORBIDDEN",
+	}
+
+	for key, decision := range decisionMapCode {
+		if key == params.AppError {
+			code = decision
+			break
+		}
+	}
+
+	decisionMapLevel := map[AppError]AppErrorRetry{
+		NotFound:         None,
+		ServerError:      Cancel,
+		DataSourceError:  WaitAndRetry,
+		ValidationError:  None,
+		MaxFileSizeError: Cancel,
+		ContentTypeError: Cancel,
+		AnyHow:           Cancel,
+		Unauthorized:     Cancel,
+		Forbidden:        Cancel,
+	}
+
+	for key, appErrorRetry := range decisionMapLevel {
+		if key == params.AppError {
+			retry = appErrorRetry
+			break
+		}
+	}
+
+	return createExtensions(params.Reason, code, retry)
+
 }
