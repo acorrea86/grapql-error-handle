@@ -1,9 +1,5 @@
 package error_hanlde
 
-import (
-	"strconv"
-)
-
 type AppError string
 type ValidationError2 string
 
@@ -18,15 +14,18 @@ const (
 	ContentTypeError       AppError = "Content Type not allowed {0}"
 	DataSourceError        AppError = "Could not get info from datasource"
 	ValidationError        AppError = "ValidationError:  {reason:?}  {code:?}"
+
+	UnauthorizedReason = "UNAUTHORIZED"
+	ForbiddenReason    = "FORBIDDEN"
 )
 
-type AppErrorRetry int
+type AppErrorRetry string
 
 const (
-	None         AppErrorRetry = 0
-	Retry        AppErrorRetry = 4
-	WaitAndRetry AppErrorRetry = 4
-	Cancel       AppErrorRetry = -1
+	None         AppErrorRetry = "NONE"
+	Retry        AppErrorRetry = "RETRY"
+	WaitAndRetry AppErrorRetry = "WAIT_AND_RETRY"
+	Cancel       AppErrorRetry = "CANCEL"
 )
 
 var decisionMapLevel = map[AppError]AppErrorRetry{
@@ -47,50 +46,21 @@ type ErrorExtensionValues struct {
 	Level  string
 }
 
+func createExtensions(reason, code string, level AppErrorRetry) *ErrorExtensionValues {
+	return &ErrorExtensionValues{
+		Reason: reason,
+		Code:   code,
+		Level:  string(level),
+	}
+}
+
 type ErrorExtensionParams struct {
 	Reason   string
 	Code     string
 	AppError AppError
 }
 
-func createExtensions(reason, code string, level AppErrorRetry) *ErrorExtensionValues {
-	return &ErrorExtensionValues{
-		Reason: reason,
-		Code:   code,
-		Level:  strconv.Itoa(int(level)),
-	}
-}
-
 func CreateExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValues {
-	switch params.AppError {
-	case NotFound:
-		return createExtensions(params.Reason, "NOT_FOUND", None)
-	case ServerError:
-		return createExtensions(params.Reason, "SERVER_ERROR", Cancel)
-	case DataSourceError:
-		return createExtensions(params.Reason, "DATA_SOURCE_ERROR", WaitAndRetry)
-	case ValidationError:
-		return createExtensions(params.Reason, params.Code, None)
-	case MaxFileSizeError:
-		return createExtensions(params.Reason, "MAX_FILE_SIZE_ERROR", Cancel)
-	case ContentTypeError:
-		return createExtensions(params.Reason, "CONTENT_TYPE_ERROR", Cancel)
-	case AnyHow:
-		//return createExtensions(params.Err.Error(), "SERVER_ERROR", Cancel)
-		return createExtensions(params.Reason, "SERVER_ERROR", Cancel)
-	case ErrorWithoutExtensions:
-		return nil
-	case Unauthorized:
-		return createExtensions(params.Reason, "UNAUTHORIZED", Cancel)
-		//return createExtensions("UNAUTHORIZED", "UNAUTHORIZED", Cancel)
-	case Forbidden:
-		//return createExtensions("FORBIDDEN", "FORBIDDEN", Cancel)
-		return createExtensions(params.Reason, "FORBIDDEN", Cancel)
-	}
-	return nil
-}
-
-func CreateExtensionForAppErrorWithMap(params ErrorExtensionParams) *ErrorExtensionValues {
 	code := ""
 	retry := None
 
