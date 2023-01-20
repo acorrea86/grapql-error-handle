@@ -14,9 +14,8 @@ const (
 	ContentTypeError       AppError = "Content Type not allowed {0}"
 	DataSourceError        AppError = "Could not get info from datasource"
 	ValidationError        AppError = "ValidationError:  {reason:?}  {code:?}"
-
-	UnauthorizedReason = "UNAUTHORIZED"
-	ForbiddenReason    = "FORBIDDEN"
+	UnauthorizedReason              = "UNAUTHORIZED"
+	ForbiddenReason                 = "FORBIDDEN"
 )
 
 type AppErrorRetry string
