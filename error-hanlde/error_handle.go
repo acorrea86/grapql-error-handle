@@ -1,7 +1,14 @@
 package error_hanlde
 
+import (
+	"context"
+	"fmt"
+
+	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+)
+
 type AppError string
-type ValidationError2 string
 
 const (
 	NotFound               AppError = "Could not find resource"
@@ -13,7 +20,7 @@ const (
 	MaxFileSizeError       AppError = "File size exceeds the maximum limit {0}"
 	ContentTypeError       AppError = "Content Type not allowed {0}"
 	DataSourceError        AppError = "Could not get info from datasource"
-	ValidationError        AppError = "ValidationError:  {reason:?}  {code:?}"
+	ValidationError        AppError = "ValidationError:  {reason: %v}  {code: %v}"
 	UnauthorizedReason              = "UNAUTHORIZED"
 	ForbiddenReason                 = "FORBIDDEN"
 )
@@ -59,7 +66,7 @@ type ErrorExtensionParams struct {
 	AppError AppError
 }
 
-func CreateExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValues {
+func createExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValues {
 	code := ""
 	retry := None
 
@@ -75,8 +82,8 @@ func CreateExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValu
 		MaxFileSizeError: "MAX_FILE_SIZE_ERROR",
 		ContentTypeError: "CONTENT_TYPE_ERROR",
 		AnyHow:           "SERVER_ERROR",
-		Unauthorized:     "UNAUTHORIZED",
-		Forbidden:        "FORBIDDEN",
+		Unauthorized:     UnauthorizedReason,
+		Forbidden:        ForbiddenReason,
 	}
 
 	for key, decision := range decisionMapCode {
@@ -94,5 +101,15 @@ func CreateExtensionForAppError(params ErrorExtensionParams) *ErrorExtensionValu
 	}
 
 	return createExtensions(params.Reason, code, retry)
+}
 
+func PresentTypedError(ctx context.Context, errExtensionParam ErrorExtensionParams) *gqlerror.Error {
+	presentedError := graphql.DefaultErrorPresenter(ctx, fmt.Errorf("%q", errExtensionParam.Reason))
+	if presentedError.Extensions == nil {
+		presentedError.Extensions = make(map[string]interface{})
+	}
+	errorExtensionsValues := createExtensionForAppError(errExtensionParam)
+	presentedError.Extensions["code"] = errorExtensionsValues.Code
+	presentedError.Extensions["level"] = errorExtensionsValues.Level
+	return presentedError
 }
